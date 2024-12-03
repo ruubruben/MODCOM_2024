@@ -32,7 +32,7 @@ void setup() {
   // PID controller settings for torque control
   motor.PID_velocity.P = 0.2;
   motor.PID_velocity.I = 20;
-  motor.PID_velocity.D = 0;
+  motor.PID_velocity.D = 1;
   motor.voltage_limit = 10;
 
   // Low-pass filter settings for velocity
