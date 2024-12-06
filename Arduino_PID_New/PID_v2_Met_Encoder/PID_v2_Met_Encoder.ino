@@ -2,57 +2,114 @@
 #include <PciManager.h>
 #include <PciListenerImp.h>
 
-MagneticSensorSPI motorSensor = MagneticSensorSPI(AS5048_SPI, 7);
-BLDCMotor motor = BLDCMotor(14);
-BLDCDriver3PWM driver = BLDCDriver3PWM(9, 5, 6, 8);
+// Motor and Driver Configuration
+const int motorPolePairs = 11;
+const float driverVoltage = 12.0;
+const float voltageLimit = driverVoltage * 0.7;
 
-// pendulum encoder init
-Encoder pendulum = Encoder(A0,A1, 1024);
-// interrupt routine 
-void doPA(){pendulum.handleA();}
-void doPB(){pendulum.handleB();}
-// PCI manager interrupt
-PciListenerImp listenerPA(pendulum.pinA, doPA);
-PciListenerImp listenerPB(pendulum.pinB, doPB);
+BLDCMotor motor = BLDCMotor(motorPolePairs);
+BLDCDriver3PWM driver = BLDCDriver3PWM(9, 10, 11, 8);
 
-float Kp = 2.0, Ki = 0.5, Kd = 1.0;
-float setpoint = 0.0, input = 0.0, output = 0.0;
-float lastError = 0.0, integral = 0.0;
-float dt = 0.01;
+// Motor Encoder Configuration
+Encoder motorEncoder = Encoder(2, 3, 500);
+void handleMotorEncoderA() { motorEncoder.handleA(); }
+void handleMotorEncoderB() { motorEncoder.handleB(); }
+
+// Pendulum Encoder Configuration
+Encoder pendulumEncoder = Encoder(A1, A2, 1000);
+void handlePendulumEncoderA() { pendulumEncoder.handleA(); }
+void handlePendulumEncoderB() { pendulumEncoder.handleB(); }
+PciListenerImp pendulumListenerA(pendulumEncoder.pinA, handlePendulumEncoderA);
+PciListenerImp pendulumListenerB(pendulumEncoder.pinB, handlePendulumEncoderB);
+
+// Control Parameters
+long loopCounter = 0;
+const int controlInterval = 25; // Run control every ~25ms
+float targetVoltage = 0;
 
 void setup() {
-  Serial.begin(9600);
-  motorSensor.init();
-   
-   // init the pendulum encoder
-  pendulum.init();
-  PciManager.registerListener(&listenerPA);
-  PciManager.registerListener(&listenerPB);
+    // Initialize Serial for Debugging
+    Serial.begin(115200);
 
-  motor.linkSensor(&motorSensor);
-  driver.voltage_power_supply = 10;
-  driver.init();
-  motor.linkDriver(&driver);
-  motor.controller = MotionControlType::torque;
-  motor.init();
-  motor.initFOC();
+    // Initialize Motor Encoder
+    motorEncoder.init();
+    motorEncoder.enableInterrupts(handleMotorEncoderA, handleMotorEncoderB);
+
+    // Initialize Pendulum Encoder
+    pendulumEncoder.init();
+    PciManager.registerListener(&pendulumListenerA);
+    PciManager.registerListener(&pendulumListenerB);
+
+    // Motor Configuration
+    motor.controller = MotionControlType::torque;
+    motor.linkSensor(&motorEncoder);
+    
+    // Driver Configuration
+    driver.voltage_power_supply = driverVoltage;
+    driver.init();
+    motor.linkDriver(&driver);
+
+    // Initialize Motor
+    motor.init();
+    motor.voltage_limit = voltageLimit;
+    motor.initFOC();
+
+    Serial.println("System Initialized");
 }
 
 void loop() {
-  motor.loopFOC();
+    // Update motor FOC loop (~1ms)
+    motor.loopFOC();
 
-  pendulum.update();
-  input = pendulum.getSensorAngle();
-  float error = setpoint - input;
-  integral += error * dt;
-  float derivative = (error - lastError) / dt;
-  output = Kp * error + Ki * integral + Kd * derivative;
-  lastError = error;
+    // Run control logic every ~25ms
+    if (loopCounter++ >= controlInterval) {
+        pendulumEncoder.update();
 
-  motor.move(constrain(output, -12.0, 12.0));
-  delay((int)(dt * 1000));
-  Serial.print("Pendulum Angle: ");
-  Serial.print(input);
-  Serial.print(" Motor Voltage: ");
-  Serial.println(output);
+        // Calculate pendulum angle
+        float pendulumAngle = constrainAngle(pendulumEncoder.getAngle() + M_PI);
+
+        // Determine control action
+        if (abs(pendulumAngle) < 0.5) {
+            // Stabilize the pendulum
+            targetVoltage = calculateLQR(pendulumAngle, pendulumEncoder.getVelocity(), motor.shaftVelocity());
+        } else {
+            // Swing-up logic
+            targetVoltage = calculateSwingUp(pendulumEncoder.getVelocity());
+        }
+
+        // Apply voltage to the motor
+        motor.move(targetVoltage);
+
+        // Reset loop counter
+        loopCounter = 0;
+    }
+}
+
+// Helper Function to Constrain Angle Between -pi and pi
+float constrainAngle(float angle) {
+    angle = fmod(angle + M_PI, _2PI);
+    if (angle < 0) {
+        angle += _2PI;
+    }
+    return angle - M_PI;
+}
+
+// LQR Controller Implementation
+float calculateLQR(float pendulumAngle, float pendulumVelocity, float motorVelocity) {
+    // LQR Gains
+    const float kPendulumAngle = 40.0;
+    const float kPendulumVelocity = 7.0;
+    const float kMotorVelocity = 0.3;
+
+    // Calculate control input
+    float controlSignal = kPendulumAngle * pendulumAngle + kPendulumVelocity * pendulumVelocity + kMotorVelocity * motorVelocity;
+
+    // Limit voltage
+    return constrain(controlSignal, -voltageLimit, voltageLimit);
+}
+
+// Swing-Up Controller Implementation
+float calculateSwingUp(float pendulumVelocity) {
+    float swingVoltage = -_sign(pendulumVelocity) * voltageLimit * 0.4;
+    return swingVoltage;
 }
