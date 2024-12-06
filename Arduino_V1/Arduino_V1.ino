@@ -1,11 +1,11 @@
 #include <SimpleFOC.h>
 
 // AS5048 Sensor - Change CS pin if necessary
-MagneticSensorSPI sensor = MagneticSensorSPI(AS5048_SPI, 8);
+MagneticSensorSPI sensor = MagneticSensorSPI(AS5048_SPI, 7);
 
 // Motor setup
-BLDCMotor motor = BLDCMotor(11);  // Adjust pole pairs as needed
-BLDCDriver3PWM driver = BLDCDriver3PWM(9, 5, 6, 8);  // PWM pins for the SimpleFOC shield (adjust if necessary)
+BLDCMotor motor = BLDCMotor(14);  // Adjust pole pairs as needed
+BLDCDriver3PWM driver = BLDCDriver3PWM(6, 9, 5, 8);  // PWM pins for the SimpleFOC shield (adjust if necessary)
 
 // Commander interface for serial control (optional)
 Commander command = Commander(Serial);
@@ -22,7 +22,7 @@ void setup() {
   motor.linkSensor(&sensor);
 
   // Initialize motor driver
-  driver.voltage_power_supply = 7.16;
+  driver.voltage_power_supply = 10;
   driver.init();
   motor.linkDriver(&driver);
 
@@ -60,7 +60,7 @@ void loop() {
   motor.loopFOC();
 
   // Move the motor based on the current target (torque control in this case)
-  motor.move();
+  motor.move(20);
 
   // Print the current sensor angle to Serial Monitor for debugging
   Serial.print("Current sensor angle: ");
