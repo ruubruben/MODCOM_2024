@@ -7,10 +7,10 @@ BLDCMotor motor = BLDCMotor(14);
 BLDCDriver3PWM driver = BLDCDriver3PWM(9, 5, 6, 8);
 
 // pendulum encoder init
-Encoder pendulum = Encoder(A0,A1, 1024);
+Encoder pendulum = Encoder(A0, A1, 1024);
 // interrupt routine 
-void doPA(){pendulum.handleA();}
-void doPB(){pendulum.handleB();}
+void doPA() { pendulum.handleA(); }
+void doPB() { pendulum.handleB(); }
 // PCI manager interrupt
 PciListenerImp listenerPA(pendulum.pinA, doPA);
 PciListenerImp listenerPB(pendulum.pinB, doPB);
@@ -20,11 +20,14 @@ float setpoint = 0.0, input = 0.0, output = 0.0;
 float lastError = 0.0, integral = 0.0;
 float dt = 0.01;
 
+long loop_count = 0; // to track the 25ms wait time
+unsigned long lastMillis = 0; // track the time for 25ms interval
+
 void setup() {
   Serial.begin(9600);
   motorSensor.init();
-   
-   // init the pendulum encoder
+  
+  // Init the pendulum encoder
   pendulum.init();
   PciManager.registerListener(&listenerPA);
   PciManager.registerListener(&listenerPB);
@@ -36,32 +39,51 @@ void setup() {
   motor.controller = MotionControlType::torque;
   motor.init();
   motor.initFOC();
+  
+  Serial.println("System Initialized.");
 }
 
-
-
 void loop() {
+  motor.loopFOC();
+
   // Update pendulum sensor
   pendulum.update();
 
   // Calculate pendulum angle and velocity
   float pendulumAngle = constrainAngle(pendulum.getAngle() + M_PI);
   float pendulumVelocity = pendulum.getVelocity();
-
-  float targetVoltage;
   
-  if (abs(pendulumAngle) < 0.5) {
-    // Stabilization with LQR control
-    targetVoltage = controllerLQR(pendulumAngle, pendulumVelocity, motor.shaftVelocity());
-  } else {
-    // Swing-up logic
-    targetVoltage = calculateSwingUp(pendulumVelocity);
+  // Control loop every 25ms
+  if (millis() - lastMillis > 25) {
+    lastMillis = millis();  // Reset timer
+    loop_count++;  // Increment the loop count
+
+    // Print debug information
+    Serial.print("Loop Count: ");
+    Serial.println(loop_count);
+    Serial.print("Pendulum Angle: ");
+    Serial.println(pendulumAngle);
+    Serial.print("Pendulum Velocity: ");
+    Serial.println(pendulumVelocity);
+    
+    // Determine the target voltage
+    float targetVoltage;
+    if (abs(pendulumAngle) < 0.5) {
+      // Stabilization with LQR control
+      targetVoltage = controllerLQR(pendulumAngle, pendulumVelocity, motor.shaftVelocity());
+    } else {
+      // Swing-up logic
+      targetVoltage = calculateSwingUp(pendulumVelocity);
+    }
+
+    // Print target voltage
+    Serial.print("Target Voltage: ");
+    Serial.println(targetVoltage);
+
+    // Apply the calculated voltage to the motor
+    motor.move(targetVoltage);
   }
-
-  // Apply the calculated voltage to the motor
-  motor.move(targetVoltage);
 }
-
 
 // Constrain the angle between -pi and pi
 float constrainAngle(float x) {
@@ -75,6 +97,7 @@ float controllerLQR(float p_angle, float p_vel, float m_vel) {
   // LQR controller: u = k*x
   // k = [40, 7, 0.3]
   float u = 40 * p_angle + 7 * p_vel + 0.3 * m_vel;
+  
   // Limit the voltage
   if (abs(u) > motor.voltage_limit * 0.7) u = _sign(u) * motor.voltage_limit * 0.7;
   return u;
