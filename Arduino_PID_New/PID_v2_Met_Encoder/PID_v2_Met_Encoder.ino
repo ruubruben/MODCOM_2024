@@ -4,7 +4,7 @@
 
 MagneticSensorSPI motorSensor = MagneticSensorSPI(AS5048_SPI, 7);
 BLDCMotor motor = BLDCMotor(14);
-BLDCDriver3PWM driver = BLDCDriver3PWM(9, 5, 6, 8);
+BLDCDriver3PWM driver = BLDCDriver3PWM(5, 9, 6, 8);
 
 // pendulum encoder init
 Encoder pendulum = Encoder(A0, A1, 1024);
@@ -36,7 +36,7 @@ void setup() {
   driver.voltage_power_supply = 10;
   driver.init();
   motor.linkDriver(&driver);
-  motor.controller = MotionControlType::torque;
+  motor.controller = MotionControlType::velocity;
   motor.init();
   motor.initFOC();
   
@@ -54,7 +54,7 @@ void loop() {
   float pendulumVelocity = pendulum.getVelocity();
   
   // Control loop every 25ms
-  if (millis() - lastMillis > 25) {
+  if (millis() - lastMillis > 1000) {
     lastMillis = millis();  // Reset timer
     loop_count++;  // Increment the loop count
 
