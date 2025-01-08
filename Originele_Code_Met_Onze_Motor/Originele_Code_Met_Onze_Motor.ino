@@ -11,7 +11,7 @@ BLDCMotor motor = BLDCMotor(14);  // Updated motor instance
 BLDCDriver3PWM driver = BLDCDriver3PWM(9, 5, 6, 8);  // Updated PWM driver pins
 
 // pendulum encoder init
-Encoder pendulum = Encoder(A0, A1, 1000);
+Encoder pendulum = Encoder(A0, A1, 512);
 // interrupt routine 
 void doPA(){pendulum.handleA();}
 void doPB(){pendulum.handleB();}
@@ -21,6 +21,8 @@ PciListenerImp listenerPB(pendulum.pinB, doPB);
 
 void setup() {
   // Initialize the motor sensor (MagneticSensorSPI)
+  Serial.begin(115200);
+
   motorSensor.init();
 
   // Set up the motor to use the new sensor (MagneticSensorSPI)
@@ -67,7 +69,10 @@ void loop() {
       target_voltage = controllerLQR(pendulum_angle, pendulum.getVelocity(), motor.shaftVelocity());
     else // else do swing-up
       target_voltage = -_sign(pendulum.getVelocity())*motor.voltage_limit*0.4;
-
+    Serial.print("Pendulum Angle: ");
+    Serial.print(pendulum_angle);
+    Serial.print(" Motor Voltage: ");
+    Serial.println(target_voltage);
     // Set the target voltage to the motor
     motor.move(target_voltage);
 

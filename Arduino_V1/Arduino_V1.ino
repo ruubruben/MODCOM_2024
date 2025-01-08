@@ -12,8 +12,7 @@ Commander command = Commander(Serial);
 void onMotor(char* cmd) { command.motor(&motor, cmd); }
 
 void setup() {
-  Serial.begin(115200);
-
+.  c
   // Initialize sensor
   sensor.init();
   Serial.println("Sensor initialized.");
