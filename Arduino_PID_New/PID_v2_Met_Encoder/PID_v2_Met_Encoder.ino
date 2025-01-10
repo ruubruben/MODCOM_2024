@@ -2,9 +2,15 @@
 #include <PciManager.h>
 #include <PciListenerImp.h>
 
-MagneticSensorSPI motorSensor = MagneticSensorSPI(AS5048_SPI, 7);
-BLDCMotor motor = BLDCMotor(14);
+// BLDC motor init
+BLDCMotor motor = BLDCMotor(11);
+// driver instance
 BLDCDriver3PWM driver = BLDCDriver3PWM(5, 9, 6, 8);
+//Motor encoder init
+Encoder encoder = Encoder(3, 2, 512);
+// interrupt routine 
+void doA(){encoder.handleA();}
+void doB(){encoder.handleB();}
 
 // pendulum encoder init
 Encoder pendulum = Encoder(A0, A1, 1024);

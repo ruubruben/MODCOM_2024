@@ -16,7 +16,7 @@ Kd = 7   # derivative gain
 Kv = 0.3  # motor velocity gain
 
 # PID swing-up gains
-swing_Kp = 10.0  # proportional gain for swing-up
+swing_Kp = 15.0  # proportional gain for swing-up
 swing_Ki = 0.1   # integral gain for swing-up
 swing_Kd = 5.0   # derivative gain for swing-up
 swing_integral = 0.0  # integral term initialization
