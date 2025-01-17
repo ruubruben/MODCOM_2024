@@ -11,7 +11,7 @@ I = m * L**2 / 3  # moment of inertia of pendulum (kg.m^2)
 motor_voltage_limit = 12  # motor voltage limit (V)
 
 # LQR stabilization gains
-Kp = 40  # proportional gain
+Kp = 1 # proportional gain
 Kd = 7   # derivative gain
 Kv = 0.3  # motor velocity gain
 

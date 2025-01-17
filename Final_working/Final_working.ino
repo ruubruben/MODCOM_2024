@@ -18,8 +18,6 @@ void doB(){encoder.handleB();}
 // pendulum encoder init
 Encoder pendulum = Encoder(10, 11, 512);
 // interrupt routine 
-void doPA(){pendulum.handleA();}
-void doPB(){pendulum.handleB();}
 // PCI manager interrupt
 PciListenerImp listenerPA(pendulum.pinA, doPA);
 PciListenerImp listenerPB(pendulum.pinB, doPB);
