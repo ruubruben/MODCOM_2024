@@ -1,5 +1,4 @@
 #include <SimpleFOC.h>
-// software interrupt library
 #include <PciManager.h>
 #include <PciListenerImp.h>
 
@@ -24,31 +23,23 @@ PciListenerImp listenerPB(pendulum.pinB, doPB);
 
 void setup() {
     Serial.begin(115200);
-
-  // initialise motor encoder hardware
   encoder.init();
   encoder.enableInterrupts(doA,doB);
   
-  // init the pendulum encoder
   pendulum.init();
   PciManager.registerListener(&listenerPA);
   PciManager.registerListener(&listenerPB);
   
-  // set control loop type to be used
   motor.controller = MotionControlType::torque;
 
-  // link the motor to the encoder
   motor.linkSensor(&encoder);
   
   // driver
   driver.voltage_power_supply = 20; 
   driver.init();
-  // link the driver and the motor
   motor.linkDriver(&driver);
 
-  // initialize motor
   motor.init();
-  // align encoder and start FOC
   motor.initFOC();
 }
 
